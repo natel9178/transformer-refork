@@ -2,33 +2,36 @@
 import argparse
 import torch
 import transformer.Constants as Constants
+import pickle
 
 def read_instances_from_file(inst_file, max_sent_len, keep_case):
     ''' Convert file into word seq lists and vocab '''
 
-    word_insts = []
+    sets = ['src', 'tgt']
+    word_insts = {s:[] for s in sets}
     trimmed_sent_count = 0
-    with open(inst_file) as f:
-        for sent in f:
-            if not keep_case:
-                sent = sent.lower()
-            words = sent.split()
-            if len(words) > max_sent_len:
-                trimmed_sent_count += 1
-            word_inst = words[:max_sent_len]
+    f = pickle.load( open( inst_file, "rb" ) ) 
+    for discussion in f:
+        for s in sets:
+            for post in discussion[s]:
+                if not keep_case:
+                    post = [w.lower() for w in post]
+                if len(post) > max_sent_len:
+                    trimmed_sent_count += 1
+                word_inst = post[:max_sent_len]
 
-            if word_inst:
-                word_insts += [[Constants.BOS_WORD] + word_inst + [Constants.EOS_WORD]]
-            else:
-                word_insts += [None]
+                if word_inst:
+                    word_insts[s] += [[Constants.BOS_WORD] + word_inst + [Constants.EOS_WORD]]
+                else:
+                    word_insts[s] += [None]
 
-    print('[Info] Get {} instances from {}'.format(len(word_insts), inst_file))
+    print('[Info] Get {} instances from {}'.format(len(word_insts[sets[0]]), inst_file))
 
     if trimmed_sent_count > 0:
-        print('[Warning] {} instances are trimmed to the max sentence length {}.'
+        print('[Warning] {} instances are trimmed to the max post length {}.'
               .format(trimmed_sent_count, max_sent_len))
 
-    return word_insts
+    return word_insts[sets[0]], word_insts[sets[1]]
 
 def build_vocab_idx(word_insts, min_word_count):
     ''' Trim vocab by number of occurence '''
@@ -69,12 +72,10 @@ def main():
     ''' Main function '''
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('-train_src', required=True)
-    parser.add_argument('-train_tgt', required=True)
-    parser.add_argument('-valid_src', required=True)
-    parser.add_argument('-valid_tgt', required=True)
+    parser.add_argument('-train', required=True)
+    parser.add_argument('-valid', required=True)
     parser.add_argument('-save_data', required=True)
-    parser.add_argument('-max_len', '--max_word_seq_len', type=int, default=50)
+    parser.add_argument('-max_len', '--max_word_seq_len', type=int, default=25)
     parser.add_argument('-min_word_count', type=int, default=5)
     parser.add_argument('-keep_case', action='store_true')
     parser.add_argument('-share_vocab', action='store_true')
@@ -84,10 +85,8 @@ def main():
     opt.max_token_seq_len = opt.max_word_seq_len + 2 # include the <s> and </s>
 
     # Training set
-    train_src_word_insts = read_instances_from_file(
-        opt.train_src, opt.max_word_seq_len, opt.keep_case)
-    train_tgt_word_insts = read_instances_from_file(
-        opt.train_tgt, opt.max_word_seq_len, opt.keep_case)
+    train_src_word_insts, train_tgt_word_insts = read_instances_from_file(
+        opt.train, opt.max_word_seq_len, opt.keep_case)
 
     if len(train_src_word_insts) != len(train_tgt_word_insts):
         print('[Warning] The training instance count is not equal.')
@@ -100,10 +99,8 @@ def main():
         (s, t) for s, t in zip(train_src_word_insts, train_tgt_word_insts) if s and t]))
 
     # Validation set
-    valid_src_word_insts = read_instances_from_file(
-        opt.valid_src, opt.max_word_seq_len, opt.keep_case)
-    valid_tgt_word_insts = read_instances_from_file(
-        opt.valid_tgt, opt.max_word_seq_len, opt.keep_case)
+    valid_src_word_insts, valid_tgt_word_insts = read_instances_from_file(
+        opt.valid, opt.max_word_seq_len, opt.keep_case)
 
     if len(valid_src_word_insts) != len(valid_tgt_word_insts):
         print('[Warning] The validation instance count is not equal.')
