@@ -102,4 +102,4 @@ ENV/
 # mypy
 .mypy_cache/
 
-data/
+data/iac
