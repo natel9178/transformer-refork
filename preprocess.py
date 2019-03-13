@@ -2,7 +2,7 @@
 import argparse
 import torch
 import transformer.Constants as Constants
-import pickle
+import _pickle as pickle
 
 def read_instances_from_file(inst_file, max_sent_len, keep_case):
     ''' Convert file into word seq lists and vocab '''
