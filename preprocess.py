@@ -4,34 +4,42 @@ import torch
 import transformer.Constants as Constants
 import _pickle as pickle
 
-def read_instances_from_file(inst_file, max_sent_len, keep_case):
+def read_instances_from_file(inst_file, max_sent_len, keep_case, add_denoise=False):
     ''' Convert file into word seq lists and vocab '''
 
     sets = ['src', 'tgt']
     word_insts = {s:[] for s in sets}
+
     trimmed_sent_count = 0
     f = pickle.load( open( inst_file, "rb" ) ) 
     for discussion in f:
-        for s in sets:
-            for post in discussion[s]:
-                if not keep_case:
-                    post = [w.lower() for w in post]
-                if len(post) > max_sent_len:
-                    trimmed_sent_count += 1
-                word_inst = post[:max_sent_len]
+        for post_src, post_tgt in zip(discussion['src'], discussion['tgt']):
+            if not keep_case:
+                post_src = [w.lower() for w in post_src]
+                post_tgt = [w.lower() for w in post_tgt]
+            if len(post_src) > max_sent_len:
+                trimmed_sent_count += 1
+            word_inst_src = post_src[:max_sent_len]
+            word_inst_tgt = post_tgt[:max_sent_len]
 
-                if word_inst:
-                    word_insts[s] += [[Constants.BOS_WORD] + word_inst + [Constants.EOS_WORD]]
-                else:
-                    word_insts[s] += [None]
+            if word_inst_src and word_inst_tgt:
+                word_insts['src'] += [[Constants.BOS_WORD] + word_inst_src + [Constants.EOS_WORD]]
+                word_insts['tgt'] += [[Constants.BOS_WORD] + word_inst_tgt + [Constants.EOS_WORD]]
 
-    print('[Info] Get {} instances from {}'.format(len(word_insts[sets[0]]), inst_file))
+                if add_denoise:
+                    word_insts['src'] += [[Constants.BOS_WORD] + word_inst_src + [Constants.EOS_WORD]]
+                    word_insts['tgt'] += [[Constants.BOS_DENOISE_WORD] + word_inst_src + [Constants.EOS_WORD]]
+            else:
+                word_insts['src'] += [None]
+                word_insts['tgt'] += [None]
+
+    print('[Info] Get {} instances from {}'.format(len(word_insts['src']), inst_file))
 
     if trimmed_sent_count > 0:
         print('[Warning] {} instances are trimmed to the max post length {}.'
               .format(trimmed_sent_count, max_sent_len))
 
-    return word_insts[sets[0]], word_insts[sets[1]]
+    return word_insts['src'], word_insts['tgt']
 
 def build_vocab_idx(word_insts, min_word_count):
     ''' Trim vocab by number of occurence '''
@@ -41,6 +49,7 @@ def build_vocab_idx(word_insts, min_word_count):
 
     word2idx = {
         Constants.BOS_WORD: Constants.BOS,
+        Constants.BOS_DENOISE_WORD: Constants.BOS_DENOISE,
         Constants.EOS_WORD: Constants.EOS,
         Constants.PAD_WORD: Constants.PAD,
         Constants.UNK_WORD: Constants.UNK}
@@ -78,6 +87,7 @@ def main():
     parser.add_argument('-max_len', '--max_word_seq_len', type=int, default=25)
     parser.add_argument('-min_word_count', type=int, default=5)
     parser.add_argument('-keep_case', action='store_true')
+    parser.add_argument('-add_self_ref', action='store_true')
     parser.add_argument('-share_vocab', action='store_true')
     parser.add_argument('-vocab', default=None)
 
@@ -86,7 +96,7 @@ def main():
 
     # Training set
     train_src_word_insts, train_tgt_word_insts = read_instances_from_file(
-        opt.train, opt.max_word_seq_len, opt.keep_case)
+        opt.train, opt.max_word_seq_len, opt.keep_case, add_denoise=opt.add_self_ref)
 
     if len(train_src_word_insts) != len(train_tgt_word_insts):
         print('[Warning] The training instance count is not equal.')
@@ -100,7 +110,7 @@ def main():
 
     # Validation set
     valid_src_word_insts, valid_tgt_word_insts = read_instances_from_file(
-        opt.valid, opt.max_word_seq_len, opt.keep_case)
+        opt.valid, opt.max_word_seq_len, opt.keep_case, add_denoise=opt.add_self_ref)
 
     if len(valid_src_word_insts) != len(valid_tgt_word_insts):
         print('[Warning] The validation instance count is not equal.')
