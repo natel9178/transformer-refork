@@ -197,6 +197,7 @@ def main():
 
     parser.add_argument('-epoch', type=int, default=10)
     parser.add_argument('-batch_size', type=int, default=64)
+    parser.add_argument('-lr', type=float, default=5e-2)
 
     #parser.add_argument('-d_word_vec', type=int, default=512)
     parser.add_argument('-d_model', type=int, default=512)
@@ -258,7 +259,7 @@ def main():
     optimizer = ScheduledOptim(
         optim.Adam(
             filter(lambda x: x.requires_grad, transformer.parameters()),
-            betas=(0.9, 0.98), eps=1e-09),
+            betas=(0.9, 0.98), eps=1e-09, lr=opt.lr),
         opt.d_model, opt.n_warmup_steps)
 
     train(transformer, training_data, validation_data, optimizer, device ,opt)
