@@ -76,7 +76,7 @@ def main():
     parser.add_argument('-valid', required=True)
     parser.add_argument('-save_data', required=True)
     parser.add_argument('-max_len', '--max_word_seq_len', type=int, default=25)
-    parser.add_argument('-min_word_count', type=int, default=5)
+    parser.add_argument('-min_word_count', type=int, default=9)
     parser.add_argument('-keep_case', action='store_true')
     parser.add_argument('-share_vocab', action='store_true')
     parser.add_argument('-vocab', default=None)
